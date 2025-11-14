@@ -6,7 +6,7 @@ Lock Pillow ist ein Sitzkissen, das per Bluetooth HID den PC automatisch sperrt 
 
 Bild der fertigen Hardware
 --------------------------
-![Fertig aufgebautes Lock Pillow — ersetze diesen Platzhalter durch dein Bild](PATH_TO_IMAGE)
+![Bild wird noch hochgeladen sobald ich ein Gehäuse habe](about:blank)
 
 Funktionen
 ---------

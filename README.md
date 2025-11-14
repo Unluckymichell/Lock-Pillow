@@ -44,6 +44,10 @@ Serial-Befehle (kurz)
   - `/wake`        — sende WIN (wecken) -> 1s warten -> Enter
   - `/type [TEXT]` — schreibt den Text per HID Tastendrücke
 
+Genutzte Externe Quellen
+------------------
+- [ESP32 as Bluetooth Keyboard](https://gist.github.com/manuelbl/66f059effc8a7be148adb1f104666467)
+
 Lizenz
 ------
 MIT License

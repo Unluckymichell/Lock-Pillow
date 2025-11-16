@@ -1,9 +1,13 @@
 #include <Arduino.h>
 #include <Arduino.h>
+
+void updateBatteryLevel(uint32_t now);
+
 #include <my_hid.h>
 
 #define LED_BUILTIN 22
 #define PILLOW_PIN 27
+#define BAT_PIN 35
 #define SER_COMMAND_LIMIT 128
 
 void setBuiltinLED(bool on)
@@ -93,9 +97,59 @@ void lock_pc() {
   Serial.println("Locking");
 }
 
+const int LUT_SIZE = 12;
+const float volts[LUT_SIZE] = {4.20, 4.15, 4.11, 4.08, 4.02, 3.98, 3.92, 3.87, 3.80, 3.70, 3.50, 3.00};
+const int pct[LUT_SIZE]    = {100,  98,   95,   90,   80,   75,   60,   50,   30,   10,   3,    0};
+
+float readBatteryVoltage(int samples = 10) {
+  long sum = 0;
+  for(int i=0;i<samples;i++){
+    sum += analogRead(BAT_PIN);
+    delay(5);
+  }
+  float raw = sum / (float)samples;
+  float v_adc = raw * (3.3 / 4095);
+  float v_bat = v_adc * 2;
+  return v_bat;
+}
+
+// lineare Interpolation über die LUT
+int voltageToPercent(float v) {
+  if (v >= volts[0]) return 100;
+  if (v <= volts[LUT_SIZE-1]) return 0;
+  for (int i = 0; i < LUT_SIZE-1; ++i) {
+    float v_hi = volts[i];
+    float v_lo = volts[i+1];
+    if (v <= v_hi && v >= v_lo) {
+      int p_hi = pct[i];
+      int p_lo = pct[i+1];
+      float t = (v - v_lo) / (v_hi - v_lo); // 0..1
+      float p = p_lo + t * (p_hi - p_lo);
+      return (int)round(p);
+    }
+  }
+  return 0; // fallback
+}
+
 uint16_t pillowOnFor = 0;
 uint16_t pillowOffFor = 0;
 bool debouncedPillowState = false;
+
+uint32_t lastBatteryUpdate = 0;
+const uint32_t BATTERY_UPDATE_INTERVAL = 60000; // 60 Sekunden
+
+void updateBatteryLevel(uint32_t now) {
+  lastBatteryUpdate = now;
+
+  float bat_v = readBatteryVoltage(10);
+  int bat_p = voltageToPercent(bat_v);
+  
+  if (isBleConnected) {
+    hid->setBatteryLevel(bat_p);
+    Serial.println("Battery updated: " + String(bat_v) + "V (" + bat_p + "%)");
+  } else
+    Serial.println("Battery (no hid update): " + String(bat_v) + "V (" + bat_p + "%)");
+}
 
 void setup()
 {
@@ -103,6 +157,9 @@ void setup()
 
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PILLOW_PIN, INPUT_PULLUP);
+
+  analogSetPinAttenuation(BAT_PIN, ADC_11db);
+
   setBuiltinLED(false); // Startzustand: aus
 
   debouncedPillowState = !digitalRead(PILLOW_PIN);
@@ -113,6 +170,12 @@ void setup()
 void loop()
 {
   bool pillow = !digitalRead(PILLOW_PIN);
+
+  // Batterie periodisch aktualisieren
+  uint32_t now = millis();
+  if (now - lastBatteryUpdate >= BATTERY_UPDATE_INTERVAL) {
+    updateBatteryLevel(now);
+  }
 
   if (pillow)
   {
@@ -149,6 +212,11 @@ void loop()
         setBuiltinLED(0);
       else
         Serial.println("Unknown led state");
+    }
+
+    else if (startsWith(ser_command, "bat"))
+    {
+      updateBatteryLevel(now);
     }
 
     else if (startsWith(ser_command, "type "))

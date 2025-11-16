@@ -189,8 +189,8 @@ void bluetoothTask(void*) {
     hid->reportMap((uint8_t*)REPORT_MAP, sizeof(REPORT_MAP));
     hid->startServices();
 
-    // set battery level to 100%
-    hid->setBatteryLevel(100);
+    // set battery level
+    updateBatteryLevel(millis());
 
     // advertise the services
     BLEAdvertising* advertising = server->getAdvertising();

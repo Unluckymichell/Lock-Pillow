@@ -10,6 +10,8 @@ void updateBatteryLevel(uint32_t now);
 #define BAT_PIN 35
 #define SER_COMMAND_LIMIT 128
 
+#define BATTERY_CORRECT 1.1003
+
 void setBuiltinLED(bool on)
 {
   digitalWrite(LED_BUILTIN, !on);
@@ -109,7 +111,7 @@ float readBatteryVoltage(int samples = 10) {
   }
   float raw = sum / (float)samples;
   float v_adc = raw * (3.3 / 4095);
-  float v_bat = v_adc * 2;
+  float v_bat = v_adc * 2 * BATTERY_CORRECT; 
   return v_bat;
 }
 

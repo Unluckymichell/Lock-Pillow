@@ -6,7 +6,7 @@ Lock Pillow ist ein Sitzkissen, das per Bluetooth HID den PC automatisch sperrt 
 
 Bild der fertigen Hardware
 --------------------------
-![Bild wird noch hochgeladen sobald ich ein Gehäuse habe](about:blank)
+![Bild wird noch hochgeladen sobald ich ein Gehäuse habe](PATH_TO_IMAGE)
 
 Funktionen
 ---------
@@ -14,6 +14,26 @@ Funktionen
 - Wecken des Rechners durch kurzes Senden der Windows‑Taste, anschließend Enter zur Auslösung von Windows Hello
 - Serielles Kommandointerface für Debug & manuelle Steuerung (Befehle beginnen mit `/` und enden mit Enter)
   - Beispielbefehle: `/led on`, `/led off`, `/lock`, `/wake`, `/type <text>`
+- Periodisches Übertragen des Akkustands an den BLE-Client (standardmäßig alle 60 s) + manuelle Abfrage per Serial-Befehl
+
+Batterie-Messung & BLE-Update
+-----------------------------
+- Die Firmware liest die Akkuspannung über GPIO35 (BAT_PIN).
+- Als Spannungsteiler sind zwei 100 kΩ Widerstände verwendet: ein Widerstand von BAT+ zum Messpunkt und ein Widerstand vom Messpunkt zu GND. Der Messpunkt ist mit GPIO35 verbunden.
+  - Dadurch wird die Batterienspannung halbiert und bleibt im sicheren ADC‑Bereich des ESP32 (bis ca. 4.2 V → ~2.1 V am Pin).
+- Im Code:
+  - ADC-Attenuation ist auf ADC_11db gesetzt (analogSetPinAttenuation).
+  - Es werden mehrere Samples gemittelt, um Rauschen zu reduzieren.
+  - Eine LUT und lineare Interpolation werden genutzt, um aus der gemessenen Spannung eine Prozentanzeige zu berechnen.
+- BLE-Updates:
+  - Wenn ein BLE-Client verbunden ist, wird der berechnete Prozentwert per HID-Battery-Service übertragen.
+  - Standardintervall: 60 Sekunden (einstellbar im Code via BATTERY_UPDATE_INTERVAL).
+  - Manuelle Aktualisierung per seriellen Befehl: `/bat`
+
+Hinweis zur Hardware
+--------------------
+- Zwei 100 kΩ Widerstände sind sehr hoher Widerstandswert → geringe Belastung des Batteriesystems, allerdings höhere Empfindlichkeit gegenüber Störspannungen. Bei elektrischer Störanfälligkeit kann ein kleinerer Widerstandswert (z. B. 10 kΩ) sinnvoll sein.
+- Achte auf korrekte Polung und sichere Lötverbindungen. Keine direkte Verbindung der Batterie ohne Spannungsbegrenzung an GPIOs.
 
 Verwendete Komponenten
 ----------------------
@@ -24,6 +44,7 @@ Verwendete Komponenten
 Wiring / Hinweise
 -----------------
 - Verbinde den Drucksensor mit dem definierten PILLOW_PIN (im Code: GPIO27) und GND. Der Pin wird mit INPUT_PULLUP betrieben.
+- BAT_PIN = GPIO35; verwende den Spannungsteiler (zwei 100 kΩ) zwischen Batterie + und GND, Messpunkt an GPIO35.
 - LED_BUILTIN ist im Code als GPIO22 definiert — anpassen, falls dein Board andere Pinbelegung hat.
 - Akku und Ladehardware entsprechend dem verwendeten ESP32-Board anschließen (Achtung: Spannung / Polarität).
 
@@ -43,9 +64,10 @@ Serial-Befehle (kurz)
   - `/lock`        — sende WIN+L (PC sperren)
   - `/wake`        — sende WIN (wecken) -> 1s warten -> Enter
   - `/type [TEXT]` — schreibt den Text per HID Tastendrücke
+  - `/bat`         — sofortige Aktualisierung und Ausgabe der Batteriewerte (und BLE-Update, falls verbunden)
 
 Genutzte Externe Quellen
-------------------
+------------------------
 - [ESP32 as Bluetooth Keyboard](https://gist.github.com/manuelbl/66f059effc8a7be148adb1f104666467)
 
 Lizenz
